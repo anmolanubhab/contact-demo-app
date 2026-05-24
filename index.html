@@ -1,0 +1,255 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Contact Demo App</title>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      padding: 20px;
+      max-width: 500px;
+      margin: auto;
+      background-color: #f9f9f9;
+    }
+
+    input {
+      width: 100%;
+      padding: 10px;
+      margin-top: 10px;
+      box-sizing: border-box;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+    }
+
+    /* Main Action Button (Save) */
+    .btn-main {
+      padding: 10px 20px;
+      margin-top: 10px;
+      cursor: pointer;
+      background-color: #007bff;
+      color: white;
+      border: none;
+      border-radius: 4px;
+      width: 100%;
+      font-size: 16px;
+    }
+
+    .btn-main:hover {
+      background-color: #0056b3;
+    }
+
+    /* Update Mode Button Style */
+    .btn-update {
+      background-color: #28a745;
+    }
+    .btn-update:hover {
+      background-color: #218838;
+    }
+
+    .card {
+      background: white;
+      border: 1px solid #ddd;
+      padding: 15px;
+      margin-top: 10px;
+      border-radius: 8px;
+      box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+    }
+
+    /* Action Buttons Box inside Card */
+    .card-actions {
+      margin-top: 10px;
+      display: flex;
+      gap: 10px;
+    }
+
+    .btn-edit {
+      background-color: #ffc107;
+      color: #212529;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-delete {
+      background-color: #dc3545;
+      color: white;
+      border: none;
+      padding: 5px 12px;
+      border-radius: 4px;
+      cursor: pointer;
+    }
+
+    .btn-edit:hover { background-color: #e0a800; }
+    .btn-delete:hover { background-color: #c82333; }
+
+    h2, h3 {
+      color: #333;
+    }
+  </style>
+</head>
+<body>
+
+<h2>Contact Demo Software</h2>
+
+<input type="text" id="name" placeholder="Enter Name">
+<input type="text" id="mobile" placeholder="Enter Mobile Number">
+
+<button id="submitBtn" class="btn-main" onclick="handleSubmit()">Save Contact</button>
+
+<h3>Saved Data</h3>
+<div id="list"></div>
+
+<script>
+  // App ki existing Supabase credentials
+  const supabaseUrl = "https://mabbrmxgtpduzmjbncan.supabase.co";
+  const supabaseKey = "sb_publishable_c9KXgMU2rBI2CyrH7a0MJQ_CJyE1PQ5";
+
+  // Initialize the Supabase client
+  const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+  // Yeh variable track karega ki hum naya entry save kar rahe hain ya puraani edit kar rahe hain
+  let currentEditId = null;
+
+  // Save aur Update dono ko handle karne ke liye main function
+  async function handleSubmit() {
+    const name = document.getElementById("name").value.trim();
+    const mobile = document.getElementById("mobile").value.trim();
+
+    if (!name || !mobile) {
+      alert("Please fill out all fields");
+      return;
+    }
+
+    if (currentEditId) {
+      // ---- UPDATE LOGIC ----
+      const { error } = await client
+        .from("contacts")
+        .update({ name: name, mobile: mobile })
+        .eq("id", currentEditId);
+
+      if (error) {
+        alert("Error updating data: " + error.message);
+        return;
+      }
+      alert("Updated Successfully!");
+    } else {
+      // ---- SAVE / INSERT LOGIC ----
+      const { error } = await client
+        .from("contacts")
+        .insert([
+          {
+            name: name,
+            mobile: mobile
+          }
+        ]);
+
+      if (error) {
+        alert("Error saving data: " + error.message);
+        return;
+      }
+      alert("Saved Successfully!");
+    }
+
+    // Form ko normal state me laane ke liye reset karenge
+    resetForm();
+    // UI refresh karenge
+    loadData();
+  }
+
+  // ---- EDIT MODE START KARNA ----
+  function startEdit(id, name, mobile) {
+    currentEditId = id;
+    document.getElementById("name").value = name;
+    document.getElementById("mobile").value = mobile;
+
+    // Main button ka text aur color badalna
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.innerText = "Update Contact";
+    submitBtn.classList.add("btn-update");
+  }
+
+  // ---- DELETE LOGIC ----
+  async function deleteData(id) {
+    if (confirm("Are you sure you want to delete this contact?")) {
+      const { error } = await client
+        .from("contacts")
+        .delete()
+        .eq("id", id);
+
+      if (error) {
+        alert("Error deleting data: " + error.message);
+        return;
+      }
+
+      alert("Deleted Successfully!");
+      
+      // Agar delete kiya hua item hi abhi edit ho raha tha, toh form clear karein
+      if (currentEditId === id) {
+        resetForm();
+      }
+      
+      loadData();
+    }
+  }
+
+  // Input fields aur button ko normal default state me lane ke liye helper
+  function resetForm() {
+    currentEditId = null;
+    document.getElementById("name").value = "";
+    document.getElementById("mobile").value = "";
+    
+    const submitBtn = document.getElementById("submitBtn");
+    submitBtn.innerText = "Save Contact";
+    submitBtn.classList.remove("btn-update");
+  }
+
+  // ---- FETCH / LOAD LOGIC ----
+  async function loadData() {
+    const { data, error } = await client
+      .from("contacts")
+      .select("*")
+      .order("id", { ascending: false });
+
+    if (error) {
+      console.error("Error loading data:", error);
+      document.getElementById("list").innerHTML = "<p style='color:red;'>Failed to load contacts.</p>";
+      return;
+    }
+
+    let html = "";
+
+    if (data.length === 0) {
+      html = "<p>No contacts saved yet.</p>";
+    } else {
+      data.forEach(item => {
+        // Name ya Mobile me single quotes (') hone par JavaScript syntax break na ho, isliye escape kiya hai
+        const escapedName = item.name.replace(/'/g, "\\'");
+        const escapedMobile = item.mobile.replace(/'/g, "\\'");
+
+        html += `
+          <div class="card">
+            <b>Name:</b> ${item.name}<br>
+            <b>Mobile:</b> ${item.mobile}
+            <div class="card-actions">
+              <button class="btn-edit" onclick="startEdit(${item.id}, '${escapedName}', '${escapedMobile}')">Edit</button>
+              <button class="btn-delete" onclick="deleteData(${item.id})">Delete</button>
+            </div>
+          </div>
+        `;
+      });
+    }
+
+    document.getElementById("list").innerHTML = html;
+  }
+
+  // Initial load when page opens
+  loadData();
+</script>
+
+</body>
+</html>
