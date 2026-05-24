@@ -1,0 +1,448 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ContactPro - Dashboard</title>
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.1/css/all.min.css" />
+  
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      box-sizing: border-box;
+      font-family: Arial, sans-serif;
+    }
+
+    body {
+      background: #f4f7fb;
+      display: flex;
+    }
+
+    .sidebar {
+      width: 250px;
+      height: 100vh;
+      background: #0f172a;
+      color: white;
+      padding: 20px;
+      position: fixed;
+    }
+
+    .sidebar h2 {
+      text-align: center;
+      margin-bottom: 40px;
+      color: #38bdf8;
+    }
+
+    .sidebar ul {
+      list-style: none;
+    }
+
+    .sidebar ul li {
+      padding: 15px;
+      margin: 10px 0;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: 0.3s;
+    }
+
+    .sidebar ul li:hover, .sidebar ul li.active {
+      background: #1e293b;
+    }
+
+    .sidebar ul li i {
+      margin-right: 10px;
+    }
+
+    .main {
+      margin-left: 250px;
+      width: calc(100% - 250px);
+      padding: 20px;
+    }
+
+    .topbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      background: white;
+      padding: 15px 20px;
+      border-radius: 12px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .search-box input {
+      padding: 10px;
+      width: 250px;
+      border-radius: 8px;
+      border: 1px solid #ccc;
+      outline: none;
+    }
+
+    .profile {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      color: #334155;
+      font-weight: 600;
+    }
+
+    .cards {
+      margin-top: 20px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 20px;
+    }
+
+    .card {
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .card h3 {
+      margin-bottom: 10px;
+      color: #0f172a;
+      font-size: 14px;
+      text-transform: uppercase;
+      letter-spacing: 0.5px;
+    }
+
+    .card p {
+      font-size: 28px;
+      font-weight: bold;
+      color: #2563eb;
+    }
+
+    /* Modal / Form Handling */
+    .form-section {
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    .form-group {
+      display: flex;
+      gap: 15px;
+      margin-top: 15px;
+      flex-wrap: wrap;
+    }
+
+    .form-group input {
+      flex: 1;
+      min-width: 200px;
+      padding: 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .table-section {
+      margin-top: 30px;
+      background: white;
+      padding: 20px;
+      border-radius: 15px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 15px;
+    }
+
+    table th, table td {
+      padding: 14px;
+      text-align: left;
+      border-bottom: 1px solid #e2e8f0;
+    }
+
+    table th {
+      background: #eff6ff;
+      color: #1e3a8a;
+    }
+
+    .btn {
+      padding: 8px 14px;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      color: white;
+      font-weight: bold;
+      margin-right: 5px;
+    }
+
+    .edit { background: #16a34a; }
+    .edit:hover { background: #15803d; }
+    .delete { background: #dc2626; }
+    .delete:hover { background: #b91c1c; }
+
+    .add-btn {
+      background: #2563eb;
+      padding: 12px 24px;
+      border-radius: 8px;
+      border: none;
+      color: white;
+      font-weight: bold;
+      cursor: pointer;
+    }
+    .add-btn:hover { background: #1d4ed8; }
+    
+    .cancel-btn {
+      background: #64748b;
+    }
+
+    @media(max-width:768px){
+      .sidebar{ width: 80px; }
+      .sidebar h2, .sidebar ul li span{ display:none; }
+      .main{ margin-left:80px; width: calc(100% - 80px); }
+      .search-box input{ width:150px; }
+    }
+  </style>
+</head>
+<body>
+
+  <div class="sidebar">
+    <h2>ContactPro</h2>
+    <ul>
+      <li class="active"><i class="fa fa-home"></i><span>Dashboard</span></li>
+      <li onclick="focusForm()"><i class="fa fa-plus"></i><span>Add Contact</span></li>
+      <li onclick="logout()"><i class="fa fa-sign-out"></i><span>Logout</span></li>
+    </ul>
+  </div>
+
+  <div class="main">
+
+    <div class="topbar">
+      <div class="search-box">
+        <input type="text" id="searchInput" placeholder="Search contacts by name..." oninput="filterData()" />
+      </div>
+      <div class="profile">
+        <i class="fa fa-user-circle fa-2x"></i>
+        <span id="username">Loading...</span>
+      </div>
+    </div>
+
+    <div class="cards">
+      <div class="card">
+        <h3>Total Contacts</h3>
+        <p id="totalContactsCount">0</p>
+      </div>
+      <div class="card">
+        <h3>Unique Prefix Networks</h3>
+        <p id="uniquePrefixCount">0</p>
+      </div>
+    </div>
+
+    <div class="form-section">
+      <h2 id="formTitle">Add New Contact</h2>
+      <div class="form-group">
+        <input type="text" id="name" placeholder="Enter Name">
+        <input type="text" id="mobile" placeholder="Enter Mobile Number">
+        <button id="submitBtn" class="add-btn" onclick="handleSubmit()">Save Contact</button>
+        <button id="cancelBtn" class="btn cancel-btn" style="display:none;" onclick="resetForm()">Cancel</button>
+      </div>
+    </div>
+
+    <div class="table-section">
+      <h2>Contact Database</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>Name</th>
+            <th>Phone</th>
+            <th>Actions</th>
+          </tr>
+        </thead>
+        <tbody id="contactTableBody">
+          </tbody>
+      </table>
+    </div>
+  </div>
+
+  <script>
+    // Supabase Configuration
+    const supabaseUrl = "https://mabbrmxgtpduzmjbncan.supabase.co";
+    const supabaseKey = "sb_publishable_c9KXgMU2rBI2CyrH7a0MJQ_CJyE1PQ5";
+    const client = supabase.createClient(supabaseUrl, supabaseKey);
+
+    let currentEditId = null;
+    let localContactsArray = [];
+
+    // 1. ENSURE ROUTE SECURITY & RETRIEVE ACTIVE USER
+    async function checkAuth() {
+      const { data: { session } } = await client.auth.getSession();
+      if (!session) {
+        // Safe relative fallback redirect structure
+        window.location.href = "index.html";
+      } else {
+        document.getElementById("username").innerText = session.user.email;
+        loadData();
+      }
+    }
+
+    // 2. DYNAMIC READ & STATS GENERATOR
+    async function loadData() {
+      const { data, error } = await client
+        .from("contacts")
+        .select("*")
+        .order("id", { ascending: false });
+
+      if (error) {
+        console.error("Database connection failure:", error);
+        return;
+      }
+
+      localContactsArray = data;
+      renderTable(localContactsArray);
+      updateMetrics(localContactsArray);
+    }
+
+    // Render loop helper
+    function renderTable(contacts) {
+      const tbody = document.getElementById("contactTableBody");
+      let html = "";
+
+      if (contacts.length === 0) {
+        html = `<tr><td colspan="3" style="text-align:center; color:#64748b;">No matching entries located in the cloud directory.</td></tr>`;
+      } else {
+        contacts.forEach(item => {
+          // Escaping string parameters to prevent string breakage in inline click event bindings
+          const escapedName = item.name.replace(/'/g, "\\'");
+          const escapedMobile = item.mobile.replace(/'/g, "\\'");
+
+          html += `
+            <tr>
+              <td><b>${item.name}</b></td>
+              <td>${item.mobile}</td>
+              <td>
+                <button class="btn edit" onclick="startEdit(${item.id}, '${escapedName}', '${escapedMobile}')"><i class="fa fa-edit"></i> Edit</button>
+                <button class="btn delete" onclick="deleteData(${item.id})"><i class="fa fa-trash"></i> Delete</button>
+              </td>
+            </tr>
+          `;
+        });
+      }
+      tbody.innerHTML = html;
+    }
+
+    // Compute metric panels dynamically from data
+    function updateMetrics(contacts) {
+      document.getElementById("totalContactsCount").innerText = contacts.length;
+      
+      // Calculate dynamic custom metrics (e.g., uniqueness profiles)
+      const prefixes = contacts.map(c => String(c.mobile).substring(0, 4));
+      const uniquePrefixes = new Set(prefixes);
+      document.getElementById("uniquePrefixCount").innerText = uniquePrefixes.size;
+    }
+
+    // 3. SEARCH FILTER (LOCAL SPEED EXTRACTION)
+    function filterData() {
+      const term = document.getElementById("searchInput").value.toLowerCase().trim();
+      if (!term) {
+        renderTable(localContactsArray);
+      } else {
+        const filtered = localContactsArray.filter(item => 
+          item.name.toLowerCase().includes(term) || 
+          item.mobile.toLowerCase().includes(term)
+        );
+        renderTable(filtered);
+      }
+    }
+
+    // 4. CREATE / UPDATE PIPELINE
+    async function handleSubmit() {
+      const name = document.getElementById("name").value.trim();
+      const mobile = document.getElementById("mobile").value.trim();
+
+      if (!name || !mobile) {
+        alert("Fields cannot remain blank.");
+        return;
+      }
+
+      if (currentEditId) {
+        // UPDATE Operation execution
+        const { error } = await client
+          .from("contacts")
+          .update({ name: name, mobile: mobile })
+          .eq("id", currentEditId);
+
+        if (error) {
+          alert("Update failure: " + error.message);
+          return;
+        }
+      } else {
+        // INSERT Operation execution
+        const { error } = await client
+          .from("contacts")
+          .insert([{ name: name, mobile: mobile }]);
+
+        if (error) {
+          alert("Database write failure: " + error.message);
+          return;
+        }
+      }
+
+      resetForm();
+      loadData();
+    }
+
+    // Form population utility
+    function startEdit(id, name, mobile) {
+      currentEditId = id;
+      document.getElementById("name").value = name;
+      document.getElementById("mobile").value = mobile;
+      
+      document.getElementById("formTitle").innerText = "Update Selected Contact";
+      document.getElementById("submitBtn").innerText = "Apply Changes";
+      document.getElementById("cancelBtn").style.display = "inline-block";
+      focusForm();
+    }
+
+    function resetForm() {
+      currentEditId = null;
+      document.getElementById("name").value = "";
+      document.getElementById("mobile").value = "";
+      document.getElementById("formTitle").innerText = "Add New Contact";
+      document.getElementById("submitBtn").innerText = "Save Contact";
+      document.getElementById("cancelBtn").style.display = "none";
+    }
+
+    // 5. DELETE OPERATION
+    async function deleteData(id) {
+      if (confirm("Are you sure you want to completely drop this directory record?")) {
+        const { error } = await client
+          .from("contacts")
+          .delete()
+          .eq("id", id);
+
+        if (error) {
+          alert("Delection Exception: " + error.message);
+          return;
+        }
+
+        if (currentEditId === id) resetForm();
+        loadData();
+      }
+    }
+
+    // Accessibility Navigation Assistance Helper
+    function focusForm() {
+      document.getElementById("name").focus();
+    }
+
+    // 6. SIGNOUT PIPELINE CLEANUP
+    async function logout() {
+      const { error } = await client.auth.signOut();
+      window.location.href = "index.html";
+    }
+
+    // Execution hooks on system startup
+    checkAuth();
+  </script>
+</body>
+</html>
